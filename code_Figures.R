@@ -15,9 +15,9 @@ library(ggExtra)
 library(parallel); library(doParallel)
 
 
-nhanes_all_prep <- read_rds("code/nhanes_all_prep.rds")
-dictionary_nhanes <- read.csv("code/dictionary_nhanes.csv") %>% as_tibble()
-source("code/metrics.R") # Metrics to perform bootstrap
+nhanes_all_prep <- read_rds("nhanes_all_prep.rds")
+dictionary_nhanes <- read.csv("dictionary_nhanes.csv") %>% as_tibble()
+source("metrics.R") # Metrics to perform bootstrap
 
 
 
@@ -152,7 +152,7 @@ figure2
 
 
 #### Figure 3. MEDWACS' discrimination and calibration performance ####
-warning_system_all <- read_rds("code/warning_system_all.rds") # MEDWACS
+warning_system_all <- read_rds("warning_system_all.rds") # MEDWACS
 warning_system_all
 
 # Find Youden's cutoff for binary classification and metrics
@@ -347,8 +347,8 @@ figure4A_SHAP
 #### Figure 4B. MEDWACS interpretation with combined-effect of parameters ####
 library(patchwork)
 
-# warning_system_all <- read_rds("code/warning_system_all.rds")
-warning_system_bmi <- read_rds("code/warning_system_bmi.rds")
+# warning_system_all <- read_rds("warning_system_all.rds")
+warning_system_bmi <- read_rds("warning_system_bmi.rds")
 warning_system_bmi
 
 
