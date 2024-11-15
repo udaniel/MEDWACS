@@ -2,7 +2,6 @@
 cross_validation_MAE <- function(ensemble_model) {
     
     library(janitor)
-    # ensemble_model <- greedy_ensemble
     
     list_carry_ens <- ensemble_model$ens_model$resample %>% as_tibble() %>% mutate(across(RMSE:MAE, ~signif(.x, 3)))
     model_list <- ensemble_model$models
@@ -92,7 +91,6 @@ cross_validation_MAE <- function(ensemble_model) {
 cross_validation_list_all <- function(model_list, threshold) {
     
     library(janitor)
-    # ensemble_model <- greedy_ensemble
     
     list_carry_ens <- model_list$ens_model$resample %>% as_tibble() %>% mutate(across(ROC, ~signif(.x, 3)))
     model_list <- model_list$models
@@ -135,8 +133,6 @@ cross_validation_list_all <- function(model_list, threshold) {
 #### cross-validation warning system measure ####
 cross_validation_warning <- function(model, thresholds) {
     
-    # model <- warning_system_all
-    # thresholds <- warning_thresholds_all
     
     library(janitor)
     original_data <- 
@@ -151,12 +147,6 @@ cross_validation_warning <- function(model, thresholds) {
                pred_youden = factor(pred_youden, levels = c("X1", "X0"))) %>% 
         group_by(Resample) -> tmp_data_pred
     
-    
-    # model$pred %>%
-    #     as_tibble() %>% 
-    #     mutate(pred_youden = ifelse(X1 >= threshold, "X1", "X0"),
-    #            pred_youden = factor(pred_youden, levels = c("X1", "X0"))) %>% 
-    #     group_by(Resample) -> tmp_data_pred
     
     tmp_data_pred %>% 
         roc_auc(truth = obs, X1) %>% 
@@ -255,7 +245,6 @@ multi_boot <- function(splits) {
 multi_boot_warning <- function(splits) {
     
     validation_pred <- analysis(splits)
-    # validation_pred <- test_data_warningSystem_wPred
     total_results <- 
         validation_pred %>% yardstick::roc_auc(truth = binarize_diab, predict_test) %>% 
         bind_rows(validation_pred %>% yardstick::accuracy(truth = binarize_diab, estimate = pred_youden),
