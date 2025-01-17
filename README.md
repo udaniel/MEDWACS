@@ -2,7 +2,7 @@
 
 
 # **Overview**
-MEDWACS aims to offer a robust early warning system for prediabetes or diabetes, yet, with only with simple parameters. The system is available as an application at (https://dtu-quantitative-sustainability-assessment.shinyapps.io/MEDWACS/). The application is saved at the shinyapps.io by RStudio, https://www.shinyapps.io/. The code to reproduce the Figures is available here. The code is written in RStudio.
+MEDWACS aims to offer a robust early warning system for prediabetes or diabetes, yet, with only with simple parameters. The system is available as an application at https://dtu-quantitative-sustainability-assessment.shinyapps.io/MEDWACS/. The application is saved at the shinyapps.io by RStudio, https://www.shinyapps.io/. The code to reproduce the Figures is available here. The code is written in RStudio.
 
 # **System requirement**
 Hardware requirements:
