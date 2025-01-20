@@ -8,7 +8,6 @@ install.packages(c("tidyverse", "ggplot2", "ggExtra", "parallel", "doParallel", 
 
 #### Load basic packages and datasets ####
 
-
 library(tidyverse)
 library(ggplot2)
 library(ggExtra)
@@ -181,9 +180,47 @@ warning_threshold_old_all <- coords(tmp_youden_obj_old_all, x = "best", best.met
 
 warning_thresholds_all <- c(warning_threshold_young_all$threshold, warning_threshold_old_all$threshold)
 
+# External validation
+NHANES_2023_final <- read_rds("NHANES_2023_final.rds") # NHANES 2021-2023
+knhanes_2023_final <- read_rds("knhanes_2023_final.rds") # KNHANES 2023
 
-# Test set
-# Prepare the predicted dataset
+## KNHANES dataset is missing upper leg length. This should be imputed with linear regression; height is also included for better prediction accuracy
+all_train_data %>% 
+    select(RIDAGEYR, RIAGENDR, VNAVEBPXSY, BMXARMC, BMXWAIST, BMXLEG, BMXBMI, BMXHT) -> all_train_forBMXLEG_KNHANES
+
+
+# Make Upper Leg Length regression
+set.seed(123)
+model_ctrl_upper_leg <- trainControl(method = "repeatedcv",
+                                     repeats = 3,
+                                     number = 10,
+                                     allowParallel = T,
+                                     savePredictions = "final",
+                                     index = createMultiFolds(all_train_forBMXLEG_KNHANES$BMXLEG, k = 10, times = 3))
+
+
+all_final_features <- warning_system_all$trainingData %>% select(-.outcome) %>% names()
+
+
+warning_system_leg <-
+    caret::train(
+        BMXLEG ~ RIDAGEYR + RIAGENDR + VNAVEBPXSY + BMXARMC + BMXWAIST + BMXBMI + BMXHT,
+        data = all_train_forBMXLEG_KNHANES %>% select(all_of(all_final_features), BMXHT),
+        trControl = model_ctrl_upper_leg,
+        preProc = c("center", "scale"),
+        method = "lm",
+        metric = "MAE"
+    )
+
+warning_system_leg
+warning_system_leg %>% summary()
+
+# Impute the upper leg length
+knhanes_2023_final %>% 
+    mutate(BMXLEG = predict(warning_system_leg, knhanes_2023_final)) -> knhanes_2023_final
+
+
+## Prepare the predicted dataset (internal validation [test set])
 all_test_data_wPred <- 
     all_test_data %>%
     mutate(predict_test = predict(warning_system_all, all_test_data, type = "prob")$X1,
@@ -193,14 +230,12 @@ all_test_data_wPred <-
            pred_youden = factor(pred_youden, levels = c("X1", "X0")))
 
 
-library(rsample)
 
 #### Figure 3A. Discrimination of MEDWACS with bootstrap ####
+library(rsample)
 set.seed(27)
 boots_system_test_all <- bootstraps(all_test_data_wPred, times = 1000, apparent = TRUE)
 result_system_test_all <- boots_system_test_all %>% mutate(result = map(splits, multi_boot_warning))
-# result_system_test_multi_all <- int_pctl(result_system_test_all, result)
-
 
 result_detail_all <- 
     bind_rows(result_system_test_all$result[1:1000]) %>% 
@@ -217,55 +252,142 @@ result_detail_all <-
                                       "PPV (%)", "NPV (%)",
                                       "1 - Brier Score (%)")))
 
+
+## Prepare the predicted dataset (NHANES 2021-2023)
+NHANES_2023_final_wPred <- 
+    NHANES_2023_final %>%
+    mutate(predict_test = predict(warning_system_all, NHANES_2023_final, type = "prob")$X1,
+           pred_raw = predict(warning_system_all, NHANES_2023_final),
+           threshold = ifelse(RIDAGEYR < 65, warning_thresholds_all[1], warning_thresholds_all[2]),
+           pred_youden = ifelse(predict_test >= threshold, "X1", "X0"),
+           pred_youden = factor(pred_youden, levels = c("X1", "X0")))
+
+
+
+
+set.seed(27)
+boots_system_external_NHANES23_all <- bootstraps(NHANES_2023_final_wPred, times = 1000, apparent = TRUE)
+result_system_external_NHANES23_all <- boots_system_external_NHANES23_all %>% mutate(result = map(splits, multi_boot_warning))
+
+
+result_detail_external_NHANES23_all <- 
+    bind_rows(result_system_external_NHANES23_all$result[1:1000]) %>% 
+    dplyr::rename(metric = term,
+                  performance = estimate) %>% 
+    mutate(metric = factor(metric, levels = c("roc_auc_perc",
+                                              "accuracy_perc", "f_meas_perc",
+                                              "sens_perc", "spec_perc",
+                                              "ppv_perc", "npv_perc",
+                                              "brier_class_perc"),
+                           labels = c("100 X ROCAUC", 
+                                      "Accuracy (%)", "F1 Score (%)",
+                                      "Sensitivity (%)", "Specificity (%)",
+                                      "PPV (%)", "NPV (%)",
+                                      "1 - Brier Score (%)")))
+
+## Prepare the predicted dataset (KNHANES 2023)
+KNHANES_2023_final_wPred <- 
+    knhanes_2023_final %>%
+    mutate(predict_test = predict(warning_system_all, knhanes_2023_final, type = "prob")$X1,
+           pred_raw = predict(warning_system_all, knhanes_2023_final),
+           threshold = ifelse(RIDAGEYR < 65, warning_thresholds_all[1], warning_thresholds_all[2]),
+           pred_youden = ifelse(predict_test >= threshold, "X1", "X0"),
+           pred_youden = factor(pred_youden, levels = c("X1", "X0")))
+
+
+set.seed(27)
+boots_system_external_KNHANES23_all <- bootstraps(KNHANES_2023_final_wPred, times = 1000, apparent = TRUE)
+result_system_external_KNHANES23_all <- boots_system_external_KNHANES23_all %>% mutate(result = map(splits, multi_boot_warning))
+
+
+result_detail_external_KNHANES23_all <- 
+    bind_rows(result_system_external_KNHANES23_all$result[1:1000]) %>% 
+    dplyr::rename(metric = term,
+                  performance = estimate) %>% 
+    mutate(metric = factor(metric, levels = c("roc_auc_perc",
+                                              "accuracy_perc", "f_meas_perc",
+                                              "sens_perc", "spec_perc",
+                                              "ppv_perc", "npv_perc",
+                                              "brier_class_perc"),
+                           labels = c("100 X ROCAUC", 
+                                      "Accuracy (%)", "F1 Score (%)",
+                                      "Sensitivity (%)", "Specificity (%)",
+                                      "PPV (%)", "NPV (%)",
+                                      "1 - Brier Score (%)")))
+
 result_detail_all %>%
+    mutate(validation = "Internal\n(test set)") %>% 
+    bind_rows(result_detail_external_NHANES23_all %>% mutate(validation = "External #1\n(NHANES 2021-2023)")) %>% 
+    bind_rows(result_detail_external_KNHANES23_all %>% mutate(validation = "External #2\n(KNHANES 2023)")) %>% 
+    mutate(validation = factor(validation, levels = c("Internal\n(test set)", "External #1\n(NHANES 2021-2023)", "External #2\n(KNHANES 2023)"))) -> result_detail_int_ext_all
+
+
+result_detail_int_ext_all %>%
     ggplot(aes(x = metric, y = performance)) +
-    geom_violin(aes(color = metric, fill = metric), alpha = 0.7) +
-    geom_boxplot(aes(color = metric, fill = metric), width = 0.1, color = "black", alpha = 0.2) + 
+    geom_violin(aes(color = validation, fill = validation), position = position_dodge(0.4), alpha = 0.7) +
+    geom_boxplot(aes(color = validation, fill = validation), position = position_dodge(0.4), width = 0.1, color = "black", alpha = 0.2, show.legend = F) + 
     xlab("Metric") + ylab("Performance (%)") +
     scale_y_continuous(breaks = seq(0, 100, 10), limits = c(0, 100)) +
     scale_colour_viridis_d(option = "turbo") +
     scale_fill_viridis_d(option = "turbo") +
+    guides(color = "none",
+           fill = guide_legend(title = "Validation")) + 
     theme_bw() +
     theme(
-        axis.text.x = element_text(size = 15),
-        axis.title.x = element_text(size = 20, vjust = 0),
-        axis.text.y = element_text(size = 15),
-        axis.title.y = element_text(size = 20),
-        plot.title = element_text(size = 20, face = "bold"),
-        legend.position = "none"
+        axis.text.x = element_text(size = 17),
+        axis.title.x = element_text(size = 22, vjust = 0, face = "bold"),
+        axis.text.y = element_text(size = 17),
+        axis.title.y = element_text(size = 22, face = "bold"),
+        legend.position = "top",
+        legend.title = element_text(size = 17, face = "bold"),
+        legend.text = element_text(size = 17)
     ) -> figure3A_discrimination
-
 
 figure3A_discrimination
 
 
 
 #### Figure 3B. Calibration of MEDWACS ####
-calPlotData_all <- calibration(binarize_diab ~ predict_test, all_test_data_wPred)
-calPlotData_all <- calPlotData_all$data %>% as_tibble()
-calPlotData_all %>% 
-    mutate(across(c(Percent:Upper, midpoint), ~ .x / 100)) -> calPlotData_all
+calPlotData_test_all <- calibration(binarize_diab ~ predict_test, all_test_data_wPred)
+calPlotData_test_all <- calPlotData_test_all$data %>% as_tibble()
+calPlotData_test_all %>% 
+    mutate(across(c(Percent:Upper, midpoint), ~ .x / 100)) -> calPlotData_test_all
 
-ggplot(calPlotData_all %>% na.omit(), aes(x = midpoint, y = Percent)) +
-    geom_line(linewidth = 1.5, color = "cornflowerblue") +
+calPlotData_NHANES2023_all <- calibration(binarize_diab ~ predict_test, NHANES_2023_final_wPred)
+calPlotData_NHANES2023_all <- calPlotData_NHANES2023_all$data %>% as_tibble()
+calPlotData_NHANES2023_all %>% 
+    mutate(across(c(Percent:Upper, midpoint), ~ .x / 100)) -> calPlotData_NHANES2023_all
+
+calPlotData_KNHANES2023_all <- calibration(binarize_diab ~ predict_test, KNHANES_2023_final_wPred)
+calPlotData_KNHANES2023_all <- calPlotData_KNHANES2023_all$data %>% as_tibble()
+calPlotData_KNHANES2023_all %>% 
+    mutate(across(c(Percent:Upper, midpoint), ~ .x / 100)) -> calPlotData_KNHANES2023_all
+
+calPlotData_test_all %>% 
+    mutate(validation = "Internal\n(test set)") %>% 
+    bind_rows(calPlotData_NHANES2023_all %>% mutate(validation = "External #1\n(NHANES 2021-2023)")) %>% 
+    bind_rows(calPlotData_KNHANES2023_all %>% mutate(validation = "External #2\n(KNHANES 2023)")) %>% 
+    mutate(validation = factor(validation, levels = c("Internal\n(test set)", "External #1\n(NHANES 2021-2023)", "External #2\n(KNHANES 2023)"))) -> calPlotData_all_int_ext
+
+
+
+ggplot(calPlotData_all_int_ext, aes(x = midpoint, y = Percent, color = validation)) +
+    geom_smooth(se = F, method = "loess", linewidth = 1.5) +
     geom_abline(slope = 1, intercept = 0, linetype = "dotted") +
     theme_bw() +
-    labs(color = "Models") + 
+    labs(color = "Validation") + 
     scale_x_continuous(limits = c(-0.1, 1.1), breaks = seq(0, 1, 0.2)) +
     scale_y_continuous(limits = c(-0.1, 1.1), breaks = seq(0, 1, 0.2)) +
     scale_colour_viridis_d(option = "turbo") +
     theme(axis.text = element_text(size = 15),
           axis.title = element_text(size = 20, face = "bold"),
-          legend.title = element_text(size = 20, face = "bold"),
-          legend.text = element_text(size = 15),
-          strip.text = element_text(size = 15, color = "white", face = "bold"),
-          strip.background = element_rect(color = "black", fill = "black", linetype = "solid"),
           plot.title = element_text(size = 20, face = "bold"),
-          panel.spacing = unit(2, "lines")) +
+          legend.position = "top",
+          legend.title = element_text(size = 15, face = "bold"),
+          legend.text = element_text(size = 15)) +
     xlab("Predicted probabilities") + ylab("Observed probabilities") -> figure3B_calibration
 
 figure3B_calibration
-
 
 
 
