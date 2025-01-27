@@ -29,6 +29,7 @@ Packages:
 -	kernelshap
 -	shapviz
 -	patchwork
+-	formattable
 
 # **Instructions guide**
 Install R and RStudio to run the code.
