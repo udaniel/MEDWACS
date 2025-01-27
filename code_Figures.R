@@ -3,7 +3,8 @@
 ##### Install packages #####
 # Skip this if you already have installed them
 install.packages(c("tidyverse", "ggplot2", "ggExtra", "parallel", "doParallel", "caret", "Boruta",
-                   "xgboost", "pROC", "yardstick",  "rsample", "kernelshap", "shapviz", "patchwork"))
+                   "xgboost", "pROC", "yardstick",  "rsample", "kernelshap", "shapviz", "patchwork",
+                   "formattable"))
 
 
 #### Load basic packages and datasets ####
@@ -11,10 +12,12 @@ install.packages(c("tidyverse", "ggplot2", "ggExtra", "parallel", "doParallel", 
 library(tidyverse)
 library(ggplot2)
 library(ggExtra)
+library(formattable)
 library(parallel); library(doParallel)
 
 
 nhanes_all_prep <- read_rds("nhanes_all_prep.rds")
+nhanes_all_prep_weights <- read_rds("nhanes_all_prep_weights.rds")
 dictionary_nhanes <- read.csv("dictionary_nhanes.csv") %>% as_tibble()
 source("metrics.R") # Metrics to perform bootstrap
 
@@ -33,12 +36,34 @@ nhanes_all_prep %>%
                                      ifelse(plasma_fasting < 100 & glycohemoglobin < 5.7, "3rd", "4th")))) %>% 
     pull(quadrants) %>% table() %>% prop.table() -> percent_quadrants
 
+quadrant_1st <- paste0("n=", comma(n_quadrants[1], format = "d"), ", ", 
+                       formatC(signif(percent_quadrants[1] * 100, 3), digits = 3, format = "fg", flag = "#"), "%")
+quadrant_2nd <- paste0("n=", comma(n_quadrants[2], format = "d"), ", ",
+                       formatC(signif(percent_quadrants[2] * 100, 3), digits = 3, format = "fg", flag = "#"), "%")
+quadrant_3rd <- paste0("n=", comma(n_quadrants[3], format = "d"), ", ",
+                       formatC(signif(percent_quadrants[3] * 100, 3), digits = 3, format = "fg", flag = "#"), "%")
+quadrant_4th <- paste0("n=", comma(n_quadrants[4], format = "d"), ", ",
+                       formatC(signif(percent_quadrants[4] * 100, 3), digits = 3, format = "fg", flag = "#"), "%")
+quadrant_all <- "Total of 17,458 participants"
 
-quadrant_1st <- paste0("n=", n_quadrants, ", ", round(percent_quadrants, 3) * 100, "%")[1]
-quadrant_2nd <- paste0("n=", n_quadrants, ", ", round(percent_quadrants, 3) * 100, "%")[2]
-quadrant_3rd <- paste0("n=", n_quadrants, ", ", round(percent_quadrants, 3) * 100, "%")[3]
-quadrant_4th <- paste0("n=", n_quadrants, ", ", round(percent_quadrants, 3) * 100, "%")[4]
-quadrant_all <- paste0("Total of ", nrow(nhanes_all_prep), " participants")
+
+# Weights
+nhanes_all_prep_weights %>%
+    mutate(quadrants = ifelse(plasma_fasting >= 100 & glycohemoglobin >= 5.7, "1st",
+                              ifelse(plasma_fasting < 100 & glycohemoglobin >= 5.7, "2nd",
+                                     ifelse(plasma_fasting < 100 & glycohemoglobin < 5.7, "3rd", "4th")))) %>%
+    select(quadrants, adjusted_mec_weights) %>%
+    group_by(quadrants) %>%
+    summarise(sum = sum(adjusted_mec_weights)) %>%
+    mutate(prop = sum / sum(sum) * 100) %>% 
+    mutate(prop_fix = formatC(signif(prop, 3), digits = 3, format = "fg", flag = "#")) -> weighted_distribution
+
+quadrant_1st <- paste0(quadrant_1st, "\n", "(weighted, ", weighted_distribution$prop_fix[1], "%)")
+quadrant_2nd <- paste0(quadrant_2nd, "\n", "(weighted, ", weighted_distribution$prop_fix[2], "%)")
+quadrant_3rd <- paste0(quadrant_3rd, "\n", "(weighted, ", weighted_distribution$prop_fix[3], "%)")
+quadrant_4th <- paste0(quadrant_4th, "\n", "(weighted, ", weighted_distribution$prop_fix[4], "%)")
+
+
 
 
 nhanes_all_prep %>% 
