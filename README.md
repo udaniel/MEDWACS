@@ -11,7 +11,7 @@ MEDWACS does not require more than a standard computer.
 **R package dependencies**
 
 If you would like to reproduce the figures on your own machine, you need to install few packages.
-R version 4.3.2 (Feather Spray), RStudio version 2024.9.0.375
+R version 4.3.2 (Feather Spray), RStudio version 2024.9.0.375.
 
 Packages:
 
