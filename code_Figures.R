@@ -632,7 +632,6 @@ figure4B_combined
 
 
 #### Figure 5. Decision curve analysis of MEDWACS ####
-
 dca(binarize_diab ~ USPSTF_2021 + ADA_2022 + predict_test, 
     data = all_test_data_wPred %>% 
         mutate(binarize_diab = fct_relevel(binarize_diab, "X0"),
