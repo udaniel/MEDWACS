@@ -30,6 +30,7 @@ Packages:
 -	shapviz (version 0.9.4)
 -	patchwork (version 1.3.0) 
 -	formattable (version 0.2.1)
+- 	dcurves (version 0.5.0)
 
 # **Instructions guide**
 Install R and RStudio to run the code.
