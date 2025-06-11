@@ -4,7 +4,7 @@
 # Skip this if you already have installed them
 install.packages(c("tidyverse", "ggplot2", "ggExtra", "parallel", "doParallel", "caret", "Boruta",
                    "xgboost", "pROC", "yardstick",  "rsample", "kernelshap", "shapviz", "patchwork",
-                   "formattable"))
+                   "formattable", "dcurves"))
 
 
 #### Load basic packages and datasets ####
@@ -14,6 +14,7 @@ library(ggplot2)
 library(ggExtra)
 library(formattable)
 library(parallel); library(doParallel)
+library(dcurves)
 
 
 nhanes_all_prep <- read_rds("nhanes_all_prep.rds")
@@ -628,6 +629,36 @@ for (quad in quadrants) {
           legend.box.spacing = unit(1, "cm")) -> figure4B_combined
 
 figure4B_combined
+
+
+#### Figure 5. Decision curve analysis of MEDWACS ####
+
+dca(binarize_diab ~ USPSTF_2021 + ADA_2022 + predict_test, 
+    data = all_test_data_wPred %>% 
+        mutate(binarize_diab = fct_relevel(binarize_diab, "X0"),
+               USPSTF_2021 = ifelse(RIDAGEYR >= 35 & RIDAGEYR <= 70 & BMXBMI >= 25, 1, 0),
+               ADA_2022 = ifelse(RIDAGEYR >= 35, 1, 0)), 
+    thresholds = seq(0, 1, by = 0.01),
+    label = list(USPSTF_2021 = "USPSTF (2021)",
+                 ADA_2022 = "ADA (2022)",
+                 predict_test = "MEDWACS")) %>%
+    plot(smooth = TRUE) +
+    ggplot2::labs(x = "Screen Threshold Probability") +
+    scale_y_continuous(breaks = seq(0, 0.7, 0.1)) + 
+    # geom_line(linewidth = 2) +
+    # scale_color_discrete(name = "Screen", labels = c("Screen All", "Screen None", "USPSTF (2021)", "ADA (2022)", "MEDWACS")) +
+    scale_colour_viridis_d(option = "turbo",
+                           name = "Screen",
+                           labels = c("Screen All", "Screen None", "USPSTF (2021)", "ADA (2022)", "MEDWACS")) +
+    theme(axis.text = element_text(size = 10),
+          axis.title = element_text(size = 15, face = "bold"),
+          legend.text = element_text(size = 10),
+          legend.title = element_text(size = 15, face = "bold")) -> dcurve_result
+
+dcurve_result
+
+
+
 
 
 
