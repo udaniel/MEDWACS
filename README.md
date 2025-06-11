@@ -11,25 +11,25 @@ MEDWACS does not require more than a standard computer.
 **R package dependencies**
 
 If you would like to reproduce the figures on your own machine, you need to install few packages.
-R version 4.3.2 (Feather Spray), RStudio version 2024.9.0.375
+R version 4.3.2 (Feather Spray), RStudio version 2024.9.0.375.
 
 Packages:
 
--	tidyverse
--	ggplot2
--	ggExtra
--	parallel
--	doParallel
--	caret
--	Boruta
--	xgboost
--	pROC
--	yardstick
--	rsample
--	kernelshap
--	shapviz
--	patchwork
--	formattable
+-	tidyverse (version 2.0.0)
+-	ggplot2 (version 3.5.1)
+-	ggExtra (version 0.10.1)
+-	parallel (version 4.3.2)
+-	doParallel (version 1.0.17)
+-	caret (version 6.0-94)
+-	Boruta (version 8.0.0)
+-	xgboost (version 1.7.8.1)
+-	pROC (version 1.18.5)
+-	yardstick (version 1.3.1)
+-	rsample (version 1.2.1)
+-	kernelshap (version 0.7.0)
+-	shapviz (version 0.9.4)
+-	patchwork (version 1.3.0) 
+-	formattable (version 0.2.1)
 
 # **Instructions guide**
 Install R and RStudio to run the code.
